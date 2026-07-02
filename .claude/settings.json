@@ -1,0 +1,15 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "pwsh -NoProfile -ExecutionPolicy Bypass -Command \"Get-Content -Raw \\\"$env:CLAUDE_PROJECT_DIR/.claude/skills/fable-orchestrator/SKILL.md\\\"\"",
+            "timeout": 30
+          }
+        ]
+      }
+    ]
+  }
+}

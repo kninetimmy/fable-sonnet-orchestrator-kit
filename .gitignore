@@ -1,0 +1,9 @@
+# Never commit secrets — keep them in an out-of-repo <ENV_VALUES_DIR>
+.git-credentials
+*.env
+env_values/
+# Rolling memory / local artifacts (generate per-project, do not ship)
+handoff.md
+# OS / editor cruft
+.DS_Store
+Thumbs.db
