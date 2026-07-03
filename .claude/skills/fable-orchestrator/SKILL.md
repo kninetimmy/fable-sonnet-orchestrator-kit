@@ -23,7 +23,10 @@ explicit — then decompose it into the issue list and present the whole plan to
 approval **before creating anything on GitHub**:
 
 - each issue: crisp title + one-line objective,
-- exactly one model tier per issue — `tier:sonnet` (default) or `tier:opus`,
+- exactly one model tier per issue — `tier:sonnet` (default), `tier:opus`, or `tier:haiku`
+  (mechanically-determined work with zero design latitude only — state the **reason** the
+  downgrade is safe, so the human override can catch an over-optimistic call; see
+  `docs/TIER-SELECTION.md`),
 - dependencies between issues (`Blocked by #N`),
 - the dispatch waves: what runs in parallel, what serializes and why.
 
@@ -44,9 +47,15 @@ a good todo list: crisp scoped titles, honest flags, closed when done.
 - Type: `feature` · `bug` · `chore` · `infra` · `research` · `docs`.
 - Tier: `tier:sonnet` (default — standard implementation, clear-symptom debugging, multi-file
   refactors) · `tier:opus` (ambiguous debugging, architecture-adjacent, work where a wrong call
-  cascades). Haiku-tier work — under ~30 seconds of main-thread effort — gets **no issue and no
-  executor**; do it in the main thread.
+  cascades) · `tier:haiku` (mechanically-determined, zero design latitude — an explicit downgrade
+  the orchestrator must justify, never the default). **Trivial / main-thread** work — no
+  reviewable diff worth a PR (Axis A: keyed on reviewable surface, not clock time) — gets **no
+  issue and no executor**; do it in the main thread.
 - Area: label per your project's modules/services (e.g. `backend` · `web` · `infra` · `qa`).
+
+Tier is a judgment call made once, at the plan gate (§0), and is human-overridable there;
+[`docs/TIER-SELECTION.md`](../../../docs/TIER-SELECTION.md) is the rubric of record for where the
+tier boundaries sit and why the `tier:haiku` one is conservative.
 
 **A clean issue** is one an executor resolves in a single focused PR without asking anything:
 Objective (one behavior) · Current vs Expected · Acceptance criteria checklist · Required tests
@@ -63,9 +72,9 @@ sessions yourself. Review its report.
 
 For each `ready` issue, spawn ONE executor subagent (Agent tool, `run_in_background: true`),
 mapped by tier label: `tier:sonnet` → `subagent_type: "sonnet-executor"` (the default),
-`tier:opus` → `subagent_type: "opus-executor"`. The agent definitions already pin the model +
-max effort, preload the shared executor skill, and carry the Stop gate — your dispatch prompt
-only scopes the work:
+`tier:opus` → `subagent_type: "opus-executor"`, `tier:haiku` → `subagent_type: "haiku-executor"`.
+The agent definitions already pin the model + max effort, preload the shared executor skill, and
+carry the Stop gate — your dispatch prompt only scopes the work:
 
 ```
 Resolve issue #<n> in <YOUR_ORG>/<repo>.
@@ -103,6 +112,13 @@ The loop is code-fired at every hand-off point; no step depends on a model remem
    (or it declares `BLOCKED:`).
 5. Fix pushed → executor stops → you get the task-notification → re-review the delta. Loop until
    the PR is ready to merge.
+
+**Escalation on a `tier:haiku` bounce.** Step 4 above assumes resuming the same executor via
+`SendMessage`. That does not apply to `tier:haiku`: a `tier:haiku` PR that draws
+`[ORCH-REVIEW] CHANGES-REQUESTED` is evidence the change exceeded the mechanical bar, so the fix
+cycle **re-dispatches the issue as `sonnet-executor`** — a fresh Agent-tool dispatch at the higher
+tier, **not** a `SendMessage` resume of the haiku agent (the model is pinned in agent frontmatter,
+so the original agent cannot simply be upgraded in place). See `docs/TIER-SELECTION.md` for why.
 
 ## 4. You hold SOLE REVIEW AUTHORITY; the human is the SOLE MERGER
 
