@@ -1,7 +1,7 @@
 ---
 name: issue-triage
 description: Narrow GitHub-issue clerk. Creates, merges/dedupes, updates, or closes issues exactly as instructed — context-efficient search, strict status/type/area flag hygiene. Never writes code or touches PRs. Dispatch with a precise list of issue operations.
-model: claude-sonnet-4-6
+model: claude-sonnet-5
 effort: max
 skills:
   - issue-triage
