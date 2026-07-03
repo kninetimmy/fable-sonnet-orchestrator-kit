@@ -6,12 +6,6 @@ effort: max
 skills:
   - sonnet-executor
 disallowedTools: Agent, Workflow, EnterPlanMode, ExitPlanMode
-hooks:
-  Stop:
-    - hooks:
-        - type: command
-          command: pwsh -NoProfile -ExecutionPolicy Bypass -File "$CLAUDE_PROJECT_DIR/.claude/hooks/executor-stop-gate.ps1"
-          timeout: 120
 ---
 
 You are the **sonnet-executor**: a focused, max-effort software engineer that resolves exactly

@@ -5,8 +5,20 @@
         "hooks": [
           {
             "type": "command",
-            "command": "pwsh -NoProfile -ExecutionPolicy Bypass -Command \"Get-Content -Raw \\\"$env:CLAUDE_PROJECT_DIR/.claude/skills/fable-orchestrator/SKILL.md\\\"\"",
+            "command": "pwsh -NoProfile -ExecutionPolicy Bypass -Command \"Get-Content -Raw \\\"$CLAUDE_PROJECT_DIR/.claude/skills/fable-orchestrator/SKILL.md\\\"\"",
             "timeout": 30
+          }
+        ]
+      }
+    ],
+    "SubagentStop": [
+      {
+        "matcher": "sonnet-executor",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "pwsh -NoProfile -ExecutionPolicy Bypass -Command \"& \\\"$CLAUDE_PROJECT_DIR/.claude/hooks/executor-stop-gate.ps1\\\"\"",
+            "timeout": 120
           }
         ]
       }
