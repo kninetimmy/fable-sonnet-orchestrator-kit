@@ -136,6 +136,45 @@ honoring the agent's `model:` frontmatter. So:
 - To update a pin later, edit the `model:` line in the relevant `.claude/agents/*.md` file — the
   pin is deliberate, so change it deliberately.
 
+## Troubleshooting / FAQ
+
+- **`gh` isn't authenticated — can an executor "get away with" stopping without a real PR?** The
+  stop gate is **fail-open by design**: any parse, network, or `gh` failure inside it results in
+  `exit 0` (allow the stop) rather than trapping the executor. Its first check — "you must produce
+  a PR URL or declare `BLOCKED:`" — only scans the executor's own transcript text and needs no
+  `gh` call, so it still applies no matter what. But once a PR URL is present, the gate calls
+  `gh pr view` to check merged/closed state and any `[ORCH-REVIEW] CHANGES-REQUESTED` feedback; if
+  `gh` can't authenticate, that call fails, the `catch` block exits `0`, and the gate allows the
+  stop **without having verified review state**. Confirm `gh` is authenticated
+  non-interactively with `gh auth status` before relying on the review loop.
+
+- **The `SubagentStop` hook doesn't seem to fire.** Two preconditions, both required:
+  1. The hook's `matcher` in `.claude/settings.json` is the exact regex
+     `"sonnet-executor|opus-executor"` — it only fires for subagent types matching that pattern. A
+     renamed or additional executor agent needs the matcher updated too, or its stops go ungated.
+  2. The hook command shells out to `pwsh` directly
+     (`pwsh -NoProfile -ExecutionPolicy Bypass -Command "..."`), so **PowerShell 7+ must be on
+     `PATH`**. Confirm with `pwsh -v` (or `Get-Command pwsh`).
+
+- **Windows path gotchas.** Hook command strings in `settings.json` execute through **Git Bash**
+  even on Windows, so use bash-expanded `$CLAUDE_PROJECT_DIR` — Git Bash resolves it to the real
+  path before `pwsh` ever runs. PowerShell's `$env:CLAUDE_PROJECT_DIR` syntax does not work here;
+  bash mangles `$env` to empty first. Both hooks invoke
+  `pwsh -NoProfile -ExecutionPolicy Bypass -Command "..."`, which runs without loading your
+  PowerShell profile and without inheriting your machine's script execution-policy restrictions —
+  if you run the same `.ps1` file directly from an ordinary PowerShell window, pass the same flags
+  or you may hit a different execution policy. See "Compatibility notes" above for more detail.
+
+- **Is orchestrator mode on right now?** Depends which install you're running:
+  - **This repo's drop-in `.claude/`** (the Install section above) has no toggle — the
+    `SessionStart` hook in `.claude/settings.json` unconditionally emits the `fable-orchestrator`
+    skill every session, so the main agent always boots into its orchestrator role once `.claude/`
+    is installed.
+  - **The evolving user-scope install** (`ORCHESTRATOR-MODE-SKETCH.md`, `/orch on` | `/orch off` |
+    `/orch status`) makes it per-repo instead: orchestrator mode is on for a given repo exactly
+    when a gitignored, empty flag file `.claude/orch.on` exists in that checkout. Check directly
+    (`Test-Path .claude/orch.on` in PowerShell) or ask the toggle: `/orch status`.
+
 ## Security
 
 These files contain **no secrets, tokens, or credentials** — only references to *where* secrets
