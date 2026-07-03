@@ -56,11 +56,13 @@ thread), never the rules — the same global rules apply in both modes.
     sonnet-executor.md        # pinned claude-sonnet-5, effort max — default worker
     opus-executor.md          # pinned claude-opus-4-8, effort max — tier:opus issues only
     issue-triage.md           # pinned claude-sonnet-5 — GitHub-issue clerk
+    pr-reviewer.md            # pinned claude-sonnet-5, effort max — read-only first-pass PR reviewer
   hooks/
     executor-stop-gate.ps1    # copied VERBATIM from this repo's .claude/hooks/
   skills/
     orchestrator/SKILL.md     # adapted operating model (the big rewrite — see §5)
     executor/SKILL.md         # ONE shared executor procedure, preloaded by BOTH executor agents
+    pr-review/SKILL.md        # preloaded by pr-reviewer only
     issue-triage/SKILL.md     # near-verbatim from this repo
     orch/SKILL.md             # the toggle: /orch on | off | status (~30 lines)
   settings.json               # + one conditional SessionStart hook (merge into existing file)
@@ -71,6 +73,9 @@ thread), never the rules — the same global rules apply in both modes.
 
 Source material: this repo's `.claude/` folder. `README.md` documents the original design.
 Note the original targets Sonnet **4.6** (`claude-sonnet-4-6`) — every pin gets updated.
+
+`pr-reviewer.md` and `pr-review/SKILL.md` port verbatim from this repo's `.claude/`; no gate or
+settings wiring — the executor Stop gate's `SubagentStop` matcher must NOT include `pr-reviewer`.
 
 ## 4. The toggle (`/orch` skill)
 
