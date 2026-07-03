@@ -39,11 +39,26 @@ only the human merges. This document is your binding operating procedure. Replac
    not `Added PTT`); one logical change per commit. Commit messages end with the trailer:
    `Co-Authored-By: Claude <noreply@anthropic.com>`
 8. **Open the PR into `main`** (always `main`; no stacked/parent branches). Title: imperative,
-   present tense, with the issue number:
+   present tense, with the issue number. The body IS your review manifest — write it to a temp
+   file and pass `--body-file` (long payloads never go via argv on Windows):
    ```
    gh pr create -R <YOUR_ORG>/<repo> --base main --head feat/<issue#>-<slug> \
-     --title "<Imperative present-tense scope> (#<issue>)" \
-     --body "Closes #<issue>`n`n<what/why>`n`n## Test evidence`n<targeted command + pass output summary>"
+     --title "<Imperative present-tense scope> (#<issue>)" --body-file <temp-file>
+   ```
+   Manifest format — every claim carries evidence a reviewer can check without re-deriving
+   your work; an unchecked criterion or an evidence-free claim sends the PR straight back:
+   ```
+   Closes #<issue>
+
+   <what/why — two or three sentences>
+
+   ## Review manifest
+   **Acceptance criteria** (every criterion from the issue, in order):
+   - [x] <criterion> — evidence: <file:line / test name / output line>
+   **Tests:** `<exact targeted command>` → <pass/fail summary>
+   **Files touched:** <every file; flag any not strictly required by the issue, and why>
+   **Deliberately not done:** <adjacent defects you commented on the issue; out-of-scope items — or "none">
+   **New dependencies:** none
    ```
    **Include the PR URL in your final message** — the stop gate reads it from your transcript.
 9. **Watch CI on your PR**: `gh pr checks <n> -R <YOUR_ORG>/<repo> --watch`. A failing check is
@@ -63,8 +78,9 @@ A Stop hook (`executor-stop-gate.ps1`) gates every attempt you make to end your 
 - After the orchestrator reviews: if it **requested changes** (a PR comment starting with
   `[ORCH-REVIEW] CHANGES-REQUESTED`, or a formal request-changes review from another account),
   the gate blocks your stop and injects the full review + inline comments. Address EVERY point in
-  your worktree, run your targeted tests, push to the same branch, reply on the PR with what you
-  changed (`gh pr comment <n> --body "..."`), then finish again.
+  your worktree, run your targeted tests, push to the same branch, reply on the PR mapping each
+  numbered review point to its fix commit (`gh pr comment <n> --body-file <temp-file>`), then
+  finish again.
 - If your PR is merged, closed, approved, or still awaiting review, the gate lets you stop.
   If review arrives after you've stopped, the orchestrator resumes this same session — your
   context is intact; pick up exactly where the review left off.

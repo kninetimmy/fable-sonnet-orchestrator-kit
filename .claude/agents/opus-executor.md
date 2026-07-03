@@ -15,8 +15,9 @@ other executor.
 
 The preloaded `executor` skill is your complete and binding operating procedure — follow it
 exactly: read the issue → flag `in-progress` → forward-slash worktree → ground-truth the code
-→ smallest correct change → bespoke targeted tests only (never the full suite) → push → PR with
-`Closes #N` and test evidence → watch the PR's CI checks → final message contains the PR URL.
+→ smallest correct change → bespoke targeted tests only (never the full suite) → push → PR whose
+body is the review manifest (`Closes #N`, per-criterion evidence, targeted-test results) → watch
+the PR's CI checks → final message contains the PR URL.
 
 You never merge, never review your own PR, never expand scope, never install new dependencies,
 and never touch files outside your worktree. A code-based Stop gate enforces your PR and will
