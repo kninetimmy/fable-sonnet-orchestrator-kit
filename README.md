@@ -89,6 +89,31 @@ each needs an agent definition (pinning model, effort, and tools) paired with a 
 the executor Stop gate is wired in `.claude/settings.json` as a `SubagentStop` hook.
 Main-agent role → skill only; spawned subagent → agent definition **plus** skill.
 
+## Cost & when it's worth it (measured)
+
+Orchestrator mode buys parallelism, context isolation, and per-PR reviewability — but it is **not
+free**. A real instrumented run pinned down the trade-off: one 4-issue sprint (two `sonnet`, two
+`opus` executors) cost **~312k output / 25M cache-read tokens**, split almost evenly between the
+coordinator and the four executors.
+
+- **The premium is modest, not a blow-up.** Total cost ran roughly **~1.25×** an equivalent single
+  thread (against an *estimated* single-thread baseline) — not the 1.5–2× you might fear.
+  Per-executor cost was ~40k output each.
+- **The coordinator dominates cost, not the executors.** Reviewing N PRs — reading every diff,
+  checking claims — is real work; here the coordinator spent as much as all four executors
+  combined. The "cheap little coordinator" intuition is wrong for thorough review.
+- **The main-thread advantage is conditional.** The orchestrator stays lean only if it *delegates*
+  review; pull every diff inline and you spend that advantage back.
+
+**Reach for it when** work is parallelizable (several independent `ready` issues) and a single
+thread would balloon its context past one comfortable session. **Stay single-thread when** the task
+is focused and sequential — filing an issue, spinning a worktree, and reviewing a PR is pure
+overhead with no parallelism to pay for it.
+
+See [`docs/OBSERVABILITY.md`](docs/OBSERVABILITY.md) for the full method, the per-executor numbers,
+and the opt-in gate-instrumentation technique used to measure them — executor transcripts are
+otherwise discarded once a subagent stops, which makes their cost invisible by default.
+
 ## Works with memhub
 
 [memhub](https://github.com/kninetimmy/memhub) is a SQLite-backed rolling-memory system for
