@@ -87,9 +87,10 @@ When you describe a task, the session runs as follows:
    evidence). The orchestrator dispatches a read-only `pr-reviewer` subagent for the first pass —
    full diff, manifest claims checked against real evidence, targeted-test re-run when in doubt —
    then reads its structured verdict, spot-reads any flagged hunks, and retains sole review
-   authority. Approved PRs come to you as a ready-to-merge report; change requests are fed back to
-   the executor through the Stop gate automatically — the executor cannot end its turn until it
-   addresses every point.
+   authority. Change requests are batched into **one consolidated review round per fix cycle**
+   (the full verdict plus every spot-read finding, never trickled) and fed back to the executor
+   through the Stop gate automatically — the executor cannot end its turn until it addresses
+   every point. Approved PRs come to you as a ready-to-merge report.
 4. **Merge gate** — the orchestrator presents each passing PR and waits for your confirmation. On
    your word, it merges, confirms the issue auto-closed, removes the executor's worktree, and
    prunes.
@@ -101,8 +102,10 @@ code is written. The orchestrator dispatches one executor subagent per ready iss
 creates a git worktree off `main`, makes the smallest correct change with bespoke targeted tests,
 and opens one PR into `main` whose body is a review manifest (`Closes #N` plus per-criterion
 evidence). The orchestrator dispatches a read-only `pr-reviewer` subagent for the first pass, reads
-its structured verdict, spot-reads any flagged hunks, requests changes if needed (iterating until
-the PR is clean) while retaining sole review authority, and surfaces a ready-to-merge report to you.
+its structured verdict, and spot-reads any flagged hunks while retaining sole review authority. If
+changes are needed, it posts ONE consolidated `[ORCH-REVIEW] CHANGES-REQUESTED` comment per fix
+cycle — the full verdict plus every spot-read finding, never a follow-up trickle against the same
+unaddressed commit — iterating until the PR is clean, then surfaces a ready-to-merge report to you.
 
 **Code-based Stop gate.** `executor-stop-gate.ps1` fires at every executor turn-end via a
 `SubagentStop` hook. It gates three cases:

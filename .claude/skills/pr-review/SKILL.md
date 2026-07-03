@@ -48,6 +48,12 @@ FAIL = any unmet criterion, out-of-scope change presented as required, failing t
 or false claim. UNCERTAIN = a genuine judgment call (design tradeoff, ambiguous criterion) —
 never use it to dodge a mechanically checkable fact.
 
+**Be exhaustive, not incremental.** The orchestrator batches your verdict into a single
+`[ORCH-REVIEW] CHANGES-REQUESTED` comment per fix cycle, so this one pass is the only chance
+this cycle gets: surface every discrepancy, flagged hunk, and unmet criterion you find now.
+Never hold a finding back for a later round — anything you omit will not resurface until the
+next fix cycle.
+
 ## Hard rules
 
 - **Read-only on GitHub**: never comment, review, approve, request changes, label, close, or
