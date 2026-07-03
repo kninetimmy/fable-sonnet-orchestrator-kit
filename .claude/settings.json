@@ -13,7 +13,7 @@
     ],
     "SubagentStop": [
       {
-        "matcher": "sonnet-executor",
+        "matcher": "sonnet-executor|opus-executor",
         "hooks": [
           {
             "type": "command",
