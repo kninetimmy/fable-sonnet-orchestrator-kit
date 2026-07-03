@@ -80,8 +80,9 @@ When you describe a task, the session runs as follows:
    full plan for your approval **before creating anything on GitHub**. Model tiers are visible and
    overridable here.
 2. **Fan-out** — on approval, the orchestrator dispatches one executor subagent per `ready` issue:
-   `sonnet-executor` (default, `tier:sonnet`) or `opus-executor` (`tier:opus`). Independent issues
-   run in parallel (up to 3-4 concurrent); conflict-prone issues serialize.
+   `sonnet-executor` (default, `tier:sonnet`), `opus-executor` (`tier:opus`), or `haiku-executor`
+   (`tier:haiku`). Independent issues run in parallel (up to 3-4 concurrent); conflict-prone
+   issues serialize.
 3. **Review loop** — each executor opens a PR whose body is a review manifest (per-criterion
    evidence). The orchestrator dispatches a read-only `pr-reviewer` subagent for the first pass —
    full diff, manifest claims checked against real evidence, targeted-test re-run when in doubt —
@@ -119,10 +120,10 @@ never traps an agent.
 **Orchestrator vs. executor asymmetry.** The orchestrator is the main agent itself — it needs no
 agent definition. The `fable-orchestrator` skill is auto-injected every session by the
 `SessionStart` hook, which is what boots the main agent into its orchestrator role. The executors
-(`sonnet-executor`, `opus-executor`, `issue-triage`) are subagents spawned via the Agent tool, so
-each needs an agent definition (pinning model, effort, and tools) paired with a matching skill;
-the executor Stop gate is wired in `.claude/settings.json` as a `SubagentStop` hook.
-Main-agent role → skill only; spawned subagent → agent definition **plus** skill.
+(`sonnet-executor`, `opus-executor`, `haiku-executor`, `issue-triage`) are subagents spawned via
+the Agent tool, so each needs an agent definition (pinning model, effort, and tools) paired with
+a matching skill; the executor Stop gate is wired in `.claude/settings.json` as a `SubagentStop`
+hook. Main-agent role → skill only; spawned subagent → agent definition **plus** skill.
 
 ## What it costs, and when it's worth it (measured)
 
@@ -233,7 +234,7 @@ At session start, read `PROJECT.md` if the repo has one — that is the canonica
   (bash expands `$env` to empty) before PowerShell ever runs.
 - `hooks:` declared in agent **frontmatter never fire**. The executor Stop gate is therefore
   registered in `.claude/settings.json` under `SubagentStop` with
-  `"matcher": "sonnet-executor|opus-executor"`, so no other subagent is gated.
+  `"matcher": "sonnet-executor|opus-executor|haiku-executor"`, so no other subagent is gated.
 - A `SubagentStop` hook **blocks by printing `{"decision":"block","reason":"..."}` to stdout**
   (exit 0). Exit code 2 + stderr — the classic Stop-hook contract — is treated as a non-blocking
   error and the subagent stops anyway. The gate also reads the executor's transcript from
@@ -247,6 +248,7 @@ Executors are pinned in their agent definition files:
 |---|---|---|
 | `sonnet-executor` | `claude-sonnet-5` | Default — all `tier:sonnet` issues |
 | `opus-executor` | `claude-opus-4-8` | `tier:opus` only — ambiguous debugging, architecture-adjacent work |
+| `haiku-executor` | `claude-haiku-4-5-20251001` | `tier:haiku` only — mechanically-determined work, zero design latitude |
 | `issue-triage` | `claude-sonnet-5` | GitHub-issue bookkeeping clerk |
 
 All executors run at `effort: max`. The exact version IDs **enforce** the right model on each
@@ -274,8 +276,9 @@ honoring the agent's `model:` frontmatter. So:
 
 - **The `SubagentStop` hook doesn't seem to fire.** Two preconditions, both required:
   1. The hook's `matcher` in `.claude/settings.json` is the exact regex
-     `"sonnet-executor|opus-executor"` — it only fires for subagent types matching that pattern. A
-     renamed or additional executor agent needs the matcher updated too, or its stops go ungated.
+     `"sonnet-executor|opus-executor|haiku-executor"` — it only fires for subagent types matching
+     that pattern. A renamed or additional executor agent needs the matcher updated too, or its
+     stops go ungated.
   2. The hook command shells out to `pwsh` directly
      (`pwsh -NoProfile -ExecutionPolicy Bypass -Command "..."`), so **PowerShell 7+ must be on
      `PATH`**. Confirm with `pwsh -v` (or `Get-Command pwsh`).
