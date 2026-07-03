@@ -41,8 +41,22 @@ reviewer/merger — **merging is the approval signal**. The `handoff` skill keep
 it has no agent definition; instead the `fable-orchestrator` skill is auto-injected each session by
 the `SessionStart` hook, which is what configures the main agent into its orchestrator role. The
 executors (`sonnet-executor`, `issue-triage`) are **subagents** spawned via the Agent tool, so each
-one *does* need an agent definition (pinning its model, effort, tools, and Stop hook) paired with a
-matching skill. Main-agent role → skill only; spawned subagent → agent def **plus** skill.
+one *does* need an agent definition (pinning its model, effort, and tools) paired with a matching
+skill; the executor's Stop gate is wired in `.claude/settings.json` as a `SubagentStop` hook.
+Main-agent role → skill only; spawned subagent → agent def **plus** skill.
+
+## Compatibility notes (Claude Code 2.1.x, Windows — verified empirically)
+
+- Hook command strings execute through **Git Bash**, even on Windows. Use bash-expanded
+  `$CLAUDE_PROJECT_DIR` in `settings.json` hook commands — pwsh-style `$env:VAR` gets mangled
+  (bash expands `$env` to empty) before PowerShell ever runs.
+- `hooks:` declared in agent **frontmatter never fire**. The executor Stop gate is therefore
+  registered in `.claude/settings.json` under `SubagentStop` with `"matcher": "sonnet-executor"`,
+  so no other subagent is gated.
+- A `SubagentStop` hook **blocks by printing `{"decision":"block","reason":"..."}` to stdout**
+  (exit 0). Exit code 2 + stderr — the classic Stop-hook contract — is treated as a non-blocking
+  error and the subagent stops anyway. The gate also reads the executor's transcript from
+  `agent_transcript_path`; `transcript_path` in SubagentStop input is the *parent* session's.
 
 ## IMPORTANT — model config (the #1 cost gotcha)
 
