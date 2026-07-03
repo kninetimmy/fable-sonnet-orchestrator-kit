@@ -99,7 +99,10 @@ The loop is code-fired at every hand-off point; no step depends on a model remem
    contains the PR URL). Its Stop gate has already refused to let it stop without a PR or an
    explicit `BLOCKED:` declaration.
 3. **You review immediately** (see §4). Outcome A — ready to merge: report to the human and wait.
-   Outcome B — request changes with a machine-checkable signal. Because all executors typically
+   Outcome B — request changes with a machine-checkable signal. **One consolidated round per fix
+   cycle**: assemble the ENTIRE review — the pr-reviewer's verdict plus every spot-read finding of
+   your own — before you post anything; never post a partial review and trickle more findings
+   later against the same unaddressed commit (rationale in §4). Because all executors typically
    share one GitHub account and GitHub forbids formal request-changes reviews on your own PR,
    the signal is a PR comment whose body STARTS with the exact marker line
    `[ORCH-REVIEW] CHANGES-REQUESTED`:
@@ -110,7 +113,8 @@ The loop is code-fired at every hand-off point; no step depends on a model remem
    PR #<n>") — the only channel to a finished subagent turn, and the ONLY LLM-issued signal in
    the loop. Everything else is automatic: the executor's Stop gate injects your full review +
    inline comments into its context and refuses to let it stop until a fix commit is pushed
-   (or it declares `BLOCKED:`).
+   (or it declares `BLOCKED:`). Because step 3 already consolidated the entire review, this is
+   the only resume the cycle should need — no gate change is required to get that guarantee.
 5. Fix pushed → executor stops → you get the task-notification → re-review the delta. Loop until
    the PR is ready to merge.
 
@@ -140,6 +144,15 @@ vs 42× when review is delegated). The first pass is delegated; the verdict neve
   correct change (no smuggled refactors, churn, or unrequested behavior changes); acceptance
   criteria walked one by one against evidence; tests real, bespoke, targeted; CI honest at
   the gate (a red is "pre-existing" only if shown failing on the base branch too).
+- **One consolidated review round per fix cycle**: before you post `[ORCH-REVIEW]
+  CHANGES-REQUESTED`, assemble the COMPLETE review for the cycle — the pr-reviewer's verdict plus
+  every spot-read finding of your own — into that ONE comment. Never post a partial review and
+  follow up later with more findings against the same unaddressed commit; that only buys an
+  avoidable extra executor resume. This needs no gate change: the gate already injects the review
+  feedback into the resumed executor on its next stop attempt. Rationale: each resume re-ingests
+  the executor's accumulated context — exactly the cost
+  [`docs/OBSERVABILITY.md`](../../../docs/OBSERVABILITY.md) measures — so batching cuts the
+  NUMBER of resumes a fix cycle needs, it does not make any single resume cheaper.
 - **Fix cycles**: re-dispatch `pr-reviewer` scoped to the new commits plus your numbered
   review points.
 
