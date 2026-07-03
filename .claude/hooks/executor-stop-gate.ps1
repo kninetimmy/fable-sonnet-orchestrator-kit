@@ -8,13 +8,19 @@
 # Gate rules:
 #   1. No PR opened and no "BLOCKED:" declaration  -> block once ("open a PR or declare BLOCKED").
 #   2. PR MERGED or CLOSED                          -> allow.
-#   3. Changes requested and no commit pushed since -> block, injecting the full feedback so the
-#      executor fixes it now. "Changes requested" is EITHER a formal CHANGES_REQUESTED review
-#      (works when the reviewer is a different GitHub account) OR a PR comment starting with
-#      "[ORCH-REVIEW] CHANGES-REQUESTED" — required because all agents typically share one
-#      GitHub account and GitHub forbids formal request-changes reviews on your own PR.
-#   4. Anything else (approved / review pending)    -> allow; the orchestrator is notified of the
-#      stop by the harness task-notification and resumes the executor only if needed.
+#   3. Changes requested and no commit pushed since -> block, injecting EVERY unaddressed signal:
+#      every "[ORCH-REVIEW] CHANGES-REQUESTED" marker comment AND every formal CHANGES_REQUESTED
+#      review whose timestamp is newer than the last fix commit, concatenated in chronological
+#      order — not just the single newest one, so a trickle of several review rounds posted
+#      across multiple comments/reviews is never silently dropped from what gets injected.
+#      "Changes requested" is EITHER a formal CHANGES_REQUESTED review (works when the reviewer
+#      is a different GitHub account) OR a PR comment starting with "[ORCH-REVIEW]
+#      CHANGES-REQUESTED" — required because all agents typically share one GitHub account and
+#      GitHub forbids formal request-changes reviews on your own PR. If a fix commit lands after
+#      the NEWEST such signal, the whole set counts as addressed (falls through to rule 4).
+#   4. Anything else (approved / review pending, or the whole changes-requested set already
+#      addressed by a newer commit) -> allow; the orchestrator is notified of the stop by the
+#      harness task-notification and resumes the executor only if needed.
 #
 # Fail-open by design: any parse/network/gh failure allows the stop — this gate must never
 # trap an agent because of tooling breakage.
@@ -73,27 +79,36 @@ try { $pr = gh pr view $prUrl --json state,reviews,comments,commits,url 2>$null 
 if (-not $pr) { exit 0 }
 if ($pr.state -eq 'MERGED' -or $pr.state -eq 'CLOSED') { exit 0 }
 
-# Latest changes-requested signal: formal review (cross-account) OR [ORCH-REVIEW] marker comment
-# (same-account orchestrator). Keep whichever is newest.
-$signalTime = $null
-$signalBody = $null
-$lastCr = $pr.reviews | Where-Object { $_.state -eq 'CHANGES_REQUESTED' } | Sort-Object submittedAt | Select-Object -Last 1
-if ($lastCr) { $signalTime = [datetime]$lastCr.submittedAt; $signalBody = $lastCr.body }
+# All changes-requested signals: formal reviews (cross-account) OR [ORCH-REVIEW] marker comments
+# (same-account orchestrator). Collect EVERY one (not just the newest) so a trickle of several
+# review rounds is never silently dropped from what gets injected below.
 $marker = '[ORCH-REVIEW] CHANGES-REQUESTED'
-$lastMarker = $pr.comments | Where-Object { $_.body -and $_.body.StartsWith($marker) } | Sort-Object createdAt | Select-Object -Last 1
-if ($lastMarker) {
-    $markerTime = [datetime]$lastMarker.createdAt
-    if (-not $signalTime -or $markerTime -gt $signalTime) { $signalTime = $markerTime; $signalBody = $lastMarker.body }
+$signals = @()
+foreach ($cr in ($pr.reviews | Where-Object { $_.state -eq 'CHANGES_REQUESTED' })) {
+    try { $signals += [pscustomobject]@{ Time = [datetime]$cr.submittedAt; Body = $cr.body } } catch { }
 }
-if (-not $signalTime) { exit 0 }   # approved or review pending -> allow stop (parking)
+foreach ($cm in ($pr.comments | Where-Object { $_.body -and $_.body.StartsWith($marker) })) {
+    try { $signals += [pscustomobject]@{ Time = [datetime]$cm.createdAt; Body = $cm.body } } catch { }
+}
+if ($signals.Count -eq 0) { exit 0 }   # approved or review pending -> allow stop (parking)
+$signals = @($signals | Sort-Object Time)
+$newestSignalTime = $signals[-1].Time
 
-# Addressed already? (any commit pushed after the latest changes-requested signal)
+# Addressed already? (any commit pushed after the NEWEST changes-requested signal — same
+# threshold as before this change, now computed across the full collected set instead of a
+# single tracked winner.)
 $headCommit = $pr.commits | Select-Object -Last 1
+$headTime = $null
 if ($headCommit -and $headCommit.committedDate) {
-    try { if ([datetime]$headCommit.committedDate -gt $signalTime) { exit 0 } } catch { exit 0 }
+    try { $headTime = [datetime]$headCommit.committedDate } catch { exit 0 }
 }
+if ($headTime -and $headTime -gt $newestSignalTime) { exit 0 }
 
-# Unaddressed changes-requested feedback -> block and inject it in full.
+# Unaddressed = every signal not already covered by that last fix commit (i.e. not older than
+# it). With no head-commit timestamp to compare against, every collected signal is unaddressed.
+$unaddressed = if ($headTime) { @($signals | Where-Object { $_.Time -ge $headTime }) } else { $signals }
+
+# Unaddressed changes-requested feedback -> block and inject every unaddressed signal in full.
 $number = $null; $owner = $null; $repo = $null
 if ($prUrl -match 'github\.com/([\w.-]+)/([\w.-]+)/pull/(\d+)') {
     $owner = $Matches[1]; $repo = $Matches[2]; $number = $Matches[3]
@@ -108,6 +123,8 @@ if ($owner) {
     } catch { }
 }
 
+$reviewText = ($unaddressed | ForEach-Object { "=== REVIEW ($($_.Time.ToString('u'))) ===`n$($_.Body)" }) -join "`n`n"
+
 $msg = @"
 STOP GATE: changes were requested on your PR $($pr.url) and you have not pushed a fix since that
 review. Address EVERY point below in your worktree, run your targeted tests, push to the PR
@@ -115,8 +132,7 @@ branch, and reply on the PR with what you changed (gh pr comment $number --body 
 finish again. If a point is genuinely impossible or out of scope, say why in a PR comment and end
 with 'BLOCKED: <reason>'.
 
-=== REVIEW ($($signalTime.ToString('u'))) ===
-$signalBody
+$reviewText
 "@
 if ($inlineText) { $msg += "`n=== INLINE COMMENTS ===`n$inlineText" }
 
