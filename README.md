@@ -10,6 +10,36 @@ approve the issue list, model tiers, and dispatch waves), and a per-PR **merge g
 confirm each passing PR before the orchestrator merges. Everything between — dispatch, executor
 work, the review loop — runs without interruption.
 
+## In plain words (explain-like-I'm-10)
+
+Imagine you're the **lead of a small building crew** putting up a treehouse. Instead of sawing
+every board yourself, you run the job like this:
+
+- ✏️ **Write each job on its own card.** Every piece of work becomes a GitHub *issue* before anyone
+  picks up a tool — one tidy to-do list the whole crew can see.
+- 👷 **Give each card to a different worker, in their own corner.** Each *executor* takes one issue
+  and builds in its own private copy of the project (a git *worktree*), so nobody saws into anyone
+  else's board. Several build at the same time.
+- 📋 **Every finished piece comes back for a check.** A worker never nails anything to the treehouse
+  themselves — they hold their piece up for you to inspect (a *pull request*). You read the whole
+  thing and either say "looks good" or hand it back with notes.
+- 🤖 **A rule-checking robot keeps everyone honest.** A little PowerShell program (the *Stop hook*)
+  sits at the door. A worker literally *cannot* wander off until they've opened their pull request
+  and fixed every note you left. It's code, not a promise, so the routine can't quietly fall apart.
+- ✅ **You make the final call.** Nothing is nailed in for real until you — the human — say "yes,
+  ship it" (*merge*).
+
+**Why bother running it this way?**
+
+- **Pieces get built in parallel** → less waiting.
+- **Your own desk stays clean** → you only ever look at *finished* pieces, never the pile of sawdust
+  each worker makes. (This turns out to be the biggest win — see the numbers below.)
+- **Every change is small and already checked** → mistakes are easy to spot, and easy to undo one at
+  a time.
+
+The catch: **being the lead isn't free.** Coordinating a crew costs *something* extra versus just
+building it yourself. So we measured exactly how much — that's the [cost section](#what-it-costs-and-when-its-worth-it-measured) below.
+
 ## Prerequisites
 
 - [Claude Code](https://docs.claude.com/en/docs/claude-code) (2.1.x verified; earlier versions
@@ -89,30 +119,94 @@ each needs an agent definition (pinning model, effort, and tools) paired with a 
 the executor Stop gate is wired in `.claude/settings.json` as a `SubagentStop` hook.
 Main-agent role → skill only; spawned subagent → agent definition **plus** skill.
 
-## Cost & when it's worth it (measured)
+## What it costs, and when it's worth it (measured)
 
-Orchestrator mode buys parallelism, context isolation, and per-PR reviewability — but it is **not
-free**. A real instrumented run pinned down the trade-off: one 4-issue sprint (two `sonnet`, two
-`opus` executors) cost **~312k output / 25M cache-read tokens**, split almost evenly between the
-coordinator and the four executors.
+Running a crew has overhead. To find out how much, we instrumented **one real sprint** end-to-end —
+four issues, four executors (two `sonnet`, two `opus`) doing moderate doc/test work — and counted
+every token. (Method and the opt-in capture trick are in
+[`docs/OBSERVABILITY.md`](docs/OBSERVABILITY.md); executor transcripts are otherwise thrown away the
+moment a subagent stops, which is exactly why this is normally invisible.)
 
-- **The premium is modest, not a blow-up.** Total cost ran roughly **~1.25×** an equivalent single
-  thread (against an *estimated* single-thread baseline) — not the 1.5–2× you might fear.
-  Per-executor cost was ~40k output each.
-- **The coordinator dominates cost, not the executors.** Reviewing N PRs — reading every diff,
-  checking claims — is real work; here the coordinator spent as much as all four executors
-  combined. The "cheap little coordinator" intuition is wrong for thorough review.
-- **The main-thread advantage is conditional.** The orchestrator stays lean only if it *delegates*
-  review; pull every diff inline and you spend that advantage back.
+Here is what that sprint cost, and the three things it taught us.
 
-**Reach for it when** work is parallelizable (several independent `ready` issues) and a single
-thread would balloon its context past one comfortable session. **Stay single-thread when** the task
-is focused and sequential — filing an issue, spinning a worktree, and reviewing a PR is pure
-overhead with no parallelism to pay for it.
+### 1. The coordinator is *not* the cheap part
 
-See [`docs/OBSERVABILITY.md`](docs/OBSERVABILITY.md) for the full method, the per-executor numbers,
-and the opt-in gate-instrumentation technique used to measure them — executor transcripts are
-otherwise discarded once a subagent stops, which makes their cost invisible by default.
+You'd guess the "lead" is a light job — hand out cards, collect finished work. Wrong. Reviewing four
+pull requests — reading every diff, checking each claim, running spot-checks — is real generation
+work. The coordinator spent **as much as all four workers combined**:
+
+```mermaid
+pie showData
+  title Output tokens: who spent them?
+  "Coordinator (reviews 4 PRs)" : 150
+  "4 executors combined" : 160
+```
+
+**What this means:** output split almost 50/50 between the *single* coordinator and the *four*
+executors — so the coordinator alone did roughly what one executor did, times four. The "cheap
+little coordinator" mental model is wrong whenever review is thorough. (That other ~160k half is
+four executors at ~40k output each.)
+
+### 2. The premium is modest — about 1.25×, not 2×
+
+The whole sprint cost **~312k output tokens** (and ~25M cache-read). Against an *estimated* baseline
+of doing the same four tasks in a single thread, that is a premium of roughly **1.25×** — noticeably
+less than the 1.5–2× we'd feared before actually measuring:
+
+```mermaid
+xychart-beta
+  title "Total output tokens: solo vs. orchestrated"
+  x-axis ["Single thread (est.)", "Orchestrator (measured)"]
+  y-axis "output tokens (thousands)" 0 --> 350
+  bar [250, 312]
+```
+
+**What this means:** you pay about a **25% token surcharge** to run the crew. That buys parallel
+work, isolated contexts, and four small reviewable PRs instead of one giant diff — not the budget
+blow-up the earlier guess implied.
+
+### 3. What the surcharge buys: a much leaner main thread
+
+The extra 25% buys something concrete. *Context tax* = cache-read tokens ÷ output tokens — basically
+**how cluttered a thread's desk gets** as it works. A normal single-thread session runs about **85×**
+(median across 33 real sessions). The orchestrator's *own* thread runs far lower, because every
+worker's file reads, edits, and test output pile up on *their* disposable desk, not the lead's:
+
+```mermaid
+xychart-beta
+  title "Main-thread context tax (lower = leaner desk)"
+  x-axis ["Single-thread median", "Orch: diffs inline", "Orch: delegated"]
+  y-axis "cache-read / output (x)" 0 --> 100
+  bar [85, 60, 42]
+```
+
+**What this means:** the coordinator's desk stays **30–50% cleaner** than a single thread doing the
+same work — *but only if it delegates review* (42×). Pull every diff into the main thread to read it
+yourself and you spend that advantage back down toward the median (60×). The lean main thread is the
+real payoff, and it is conditional on actually delegating.
+
+### The exact numbers
+
+| | Output | Cache-read | Context tax |
+|---|---|---|---|
+| **Full 4-issue sprint** | ~312k | ~25M | 80× |
+| Coordinator (review) | ~150k (49%) | ~9M (37%) | 42–60× |
+| 4 executors combined | ~160k (51%) | ~16M (63%) | 72–204× each |
+| — per executor (2× `sonnet`, 2× `opus`) | ~40k | ~4M | — |
+| **vs. single thread (estimated)** | **~1.25×** | — | median 85× |
+
+**Caveats, so you can weigh the numbers honestly:** the single-thread baseline is *estimated, not
+measured*; this was **one** sprint (`n=1`); and the tasks were moderate doc/test work — heavier
+coding would shift more of the cost onto the executors and less onto review.
+
+### So: when is it worth it?
+
+- **Reach for orchestrator mode when** work is parallelizable — several independent, `ready` issues —
+  and doing it in one thread would balloon that thread's context past a comfortable session. You pay
+  ~25% more tokens to keep your main thread lean and get small, individually reviewable PRs.
+- **Stay single-thread when** the task is focused and sequential — one file, one clear fix, a quick
+  question. Filing an issue, spinning a worktree, and reviewing a PR is pure overhead when there's no
+  parallel work to pay for it.
 
 ## Works with memhub
 
