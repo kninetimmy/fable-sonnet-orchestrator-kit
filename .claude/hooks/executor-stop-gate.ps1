@@ -25,7 +25,10 @@ $env:GCM_INTERACTIVE = 'never'
 
 try { $hookInput = [Console]::In.ReadToEnd() | ConvertFrom-Json } catch { exit 0 }
 if (-not $hookInput) { exit 0 }
-$transcript = $hookInput.transcript_path
+# Harness compat (Claude Code 2.1.x): for SubagentStop, transcript_path is the PARENT session's
+# transcript; the executor's own transcript is agent_transcript_path. Prefer the executor's.
+$transcript = $hookInput.agent_transcript_path
+if (-not $transcript) { $transcript = $hookInput.transcript_path }
 if (-not $transcript -or -not (Test-Path $transcript)) { exit 0 }
 
 # Scan the executor's transcript (tolerating the live writer's lock) for:
@@ -50,16 +53,19 @@ if (-not $prUrl) {
     # Only nudge once: if we already blocked this stop cycle and there is still no PR,
     # let it end — the orchestrator sees the result and decides.
     if ($hookInput.stop_hook_active -eq $true) { exit 0 }
-    [Console]::Error.WriteLine(@"
+    # Harness compat (Claude Code 2.1.x): SubagentStop exit-2 does NOT block; the supported
+    # blocking mechanism is JSON {"decision":"block","reason":...} on stdout with exit 0.
+    $reason = @"
 STOP GATE: no pull request found for your work. You must either:
 (a) push your branch and open a PR into main now:
-    gh pr create --base main --title "<type>: <scope> (#<issue>)" --body "Closes #<issue> ..."
+    gh pr create --base main --title "<imperative scope> (#<issue>)" --body "Closes #<issue> ..."
     then include the PR URL in your final message; or
 (b) if you are genuinely unable to proceed, flag the issue (blocked / needs-human-clarification),
     comment the exact blocker on the issue, and end your final message with a line starting with
     'BLOCKED: <reason>'.
-"@)
-    exit 2
+"@
+    [Console]::Out.WriteLine((@{ decision = 'block'; reason = $reason } | ConvertTo-Json -Compress))
+    exit 0
 }
 
 $pr = $null
@@ -114,5 +120,6 @@ $signalBody
 "@
 if ($inlineText) { $msg += "`n=== INLINE COMMENTS ===`n$inlineText" }
 
-[Console]::Error.WriteLine($msg)
-exit 2
+# Harness compat (Claude Code 2.1.x): block via JSON stdout, not exit 2 (see note above).
+[Console]::Out.WriteLine((@{ decision = 'block'; reason = $msg } | ConvertTo-Json -Compress))
+exit 0
