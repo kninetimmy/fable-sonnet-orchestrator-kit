@@ -154,3 +154,24 @@ Describe 'executor-stop-gate — offline decision branches' {
         }
     }
 }
+
+Describe 'executor-stop-gate — SubagentStop matcher configuration (issue #26)' {
+
+    Context 'settings.json SubagentStop matcher' {
+
+        # Regression guard: the gate is wired via SubagentStop's `matcher` regex, so any
+        # executor type missing from this string stops completely ungated (silently, since
+        # the hook simply never fires for it) — see README "The SubagentStop hook doesn't
+        # seem to fire". This pins all three current executor tiers so a future narrowing
+        # (e.g. dropping haiku-executor again) fails loudly here instead.
+        It 'includes all three executor types (sonnet, opus, haiku)' {
+            $settingsPath = (Resolve-Path (Join-Path $PSScriptRoot '..' '.claude' 'settings.json')).Path
+            $settings = Get-Content -Raw -LiteralPath $settingsPath | ConvertFrom-Json
+            $matcher  = $settings.hooks.SubagentStop[0].matcher
+
+            $matcher | Should -Match 'sonnet-executor'
+            $matcher | Should -Match 'opus-executor'
+            $matcher | Should -Match 'haiku-executor'
+        }
+    }
+}
