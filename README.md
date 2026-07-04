@@ -128,6 +128,16 @@ the Agent tool, so each needs an agent definition (pinning model, effort, and to
 a matching skill; the executor Stop gate is wired in `.claude/settings.json` as a `SubagentStop`
 hook. Main-agent role → skill only; spawned subagent → agent definition **plus** skill.
 
+## Continuous integration
+
+This kit has its own CI: [`.github/workflows/gate-tests.yml`](.github/workflows/gate-tests.yml)
+runs `tests/gate.Tests.ps1` under Pester ≥5 on `windows-latest` (`pwsh`) whenever a pull request
+touches the Stop gate script, `.claude/settings.json`, anything under `tests/`, or the workflow
+file itself — plus a manual `workflow_dispatch` trigger. The job installs Pester ≥5 if the runner
+doesn't already have it, then asserts the Pester result's `FailedCount` is zero and fails the job
+otherwise, so a red gate test cannot merge silently. This is CI **for the kit's own test suite**;
+it is not part of what the Install section above drops into a consuming project.
+
 ## What it costs, and when it's worth it (measured)
 
 Running a crew has overhead. To find out how much, we instrumented **one real sprint** end-to-end —
