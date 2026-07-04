@@ -27,20 +27,27 @@ only the human merges. This document is your binding operating procedure. Replac
    Then **comment the worktree path + branch on the issue** (mandatory, so no other agent
    collides with you).
 4. **Ground-truth before changing anything.** Lead with a best-effort, read-only recall of prior
-   project memory before you open a single file:
+   project memory before you open a single file — **run it in a subshell**, mirroring the `git -C`
+   idiom step 3 already uses:
    ```
-   memhub recall "<query scoped to the files/subsystem this issue touches>"
+   (cd <REPO_ROOT>/<repo> && memhub recall "<query scoped to the files/subsystem this issue touches>")
    ```
-   Run it with **cwd = `<REPO_ROOT>/<repo>`** — the main checkout that holds `.memhub/` (the same
-   directory your worktree in step 3 was branched *from*) — **never** your worktree (its
-   `.memhub/` doesn't exist there; it's gitignored) and **never** the bare `<REPO_ROOT>` parent
-   (memhub walks up the directory tree from cwd and errors `no memhub project above …` one level
-   too high). Use `recall` **only** — never `locate` (it refreshes a local code index on every
-   call, a write, and off-limits under Hard Rules below). This step is best-effort and
-   conditional: if recall errors `no memhub project above …` or the `memhub` command isn't found,
-   skip it silently and fall back to file-reading — never block on it. Then read the actual code,
-   tests, and schemas you are about to touch. Cite file:line evidence to yourself. Never patch
-   from assumption.
+   The subshell is load-bearing, not stylistic: many shells (including this harness's Bash tool)
+   persist cwd across tool calls, so a bare `cd <REPO_ROOT>/<repo> && memhub recall …` would leave
+   every later step — edits, targeted tests, `git add`/`commit`/`push` in steps 5-9 — running from
+   the main checkout instead of your worktree, a silent failure mode that risks a commit landing on
+   the main checkout's checked-out branch instead of your feature branch. The parenthesized
+   subshell restores your real cwd the instant the command returns.
+
+   `<REPO_ROOT>/<repo>` is the main checkout that holds `.memhub/` (the same directory your
+   worktree in step 3 was branched *from*) — **never** your worktree (its `.memhub/` doesn't exist
+   there; it's gitignored) and **never** the bare `<REPO_ROOT>` parent (memhub walks up the
+   directory tree from cwd and errors `no memhub project above …` one level too high). Use
+   `recall` **only** — never `locate` (it refreshes a local code index on every call, a write, and
+   off-limits under Hard Rules below). This step is best-effort and conditional: if recall errors
+   `no memhub project above …` or the `memhub` command isn't found, skip it silently and fall back
+   to file-reading — never block on it. Then read the actual code, tests, and schemas you are about
+   to touch. Cite file:line evidence to yourself. Never patch from assumption.
 5. **Make the smallest correct change** that satisfies the acceptance criteria. No drive-by
    refactors, no formatting churn, no scope creep. If you find an adjacent defect, comment it on
    the issue for the orchestrator instead of fixing it.
