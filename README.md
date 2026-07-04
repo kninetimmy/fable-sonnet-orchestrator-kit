@@ -238,6 +238,14 @@ newly-learned gotchas); memhub's own approval gates stay intact. Executors **nev
 `agent_docs/`, `PROJECT.md`, or `PROJECT_LEDGER.md` — those are orchestrator/memhub-owned
 (K9 rule: subagent writes there are forbidden).
 
+Executors also self-serve prior context, rather than waiting for the orchestrator to paste it
+into the issue: at ground-truth (`executor/SKILL.md` step 4) each one runs a read-only
+`memhub recall "<query>"` with **cwd = `<REPO_ROOT>/<repo>`** (the main checkout that holds
+`.memhub/` — never the worktree, which is gitignored and has no DB of its own). It's pull, not
+push, and best-effort: no memhub project in the repo, or no `memhub` binary on `PATH`, and the
+executor skips it silently and falls back to reading files. `recall` is the only memhub command
+executors run — never `locate`, which refreshes a local code index (a write).
+
 At session start, read `PROJECT.md` if the repo has one — that is the canonical project state.
 
 ## Compatibility notes (Claude Code 2.1.x, Windows — verified empirically)
