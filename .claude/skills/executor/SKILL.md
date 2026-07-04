@@ -26,8 +26,28 @@ only the human merges. This document is your binding operating procedure. Replac
    ```
    Then **comment the worktree path + branch on the issue** (mandatory, so no other agent
    collides with you).
-4. **Ground-truth before changing anything**: read the actual code, tests, and schemas you are
-   about to touch. Cite file:line evidence to yourself. Never patch from assumption.
+4. **Ground-truth before changing anything.** Lead with a best-effort, read-only recall of prior
+   project memory before you open a single file — **run it in a subshell**, mirroring the `git -C`
+   idiom step 3 already uses:
+   ```
+   (cd <REPO_ROOT>/<repo> && memhub recall "<query scoped to the files/subsystem this issue touches>")
+   ```
+   The subshell is load-bearing, not stylistic: many shells (including this harness's Bash tool)
+   persist cwd across tool calls, so a bare `cd <REPO_ROOT>/<repo> && memhub recall …` would leave
+   every later step — edits, targeted tests, `git add`/`commit`/`push` in steps 5-9 — running from
+   the main checkout instead of your worktree, a silent failure mode that risks a commit landing on
+   the main checkout's checked-out branch instead of your feature branch. The parenthesized
+   subshell restores your real cwd the instant the command returns.
+
+   `<REPO_ROOT>/<repo>` is the main checkout that holds `.memhub/` (the same directory your
+   worktree in step 3 was branched *from*) — **never** your worktree (its `.memhub/` doesn't exist
+   there; it's gitignored) and **never** the bare `<REPO_ROOT>` parent (memhub walks up the
+   directory tree from cwd and errors `no memhub project above …` one level too high). Use
+   `recall` **only** — never `locate` (it refreshes a local code index on every call, a write, and
+   off-limits under Hard Rules below). This step is best-effort and conditional: if recall errors
+   `no memhub project above …` or the `memhub` command isn't found, skip it silently and fall back
+   to file-reading — never block on it. Then read the actual code, tests, and schemas you are about
+   to touch. Cite file:line evidence to yourself. Never patch from assumption.
 5. **Make the smallest correct change** that satisfies the acceptance criteria. No drive-by
    refactors, no formatting churn, no scope creep. If you find an adjacent defect, comment it on
    the issue for the orchestrator instead of fixing it.
@@ -113,4 +133,7 @@ If you cannot proceed (ambiguous requirement, missing secret, dependency not mer
 - **Migrations**: one migration per PR at most; `down_revision` = the CURRENT single head; DB
   round-trip tests pin explicit revision ids, never relative refs like `-1`/`head`.
 - **Never write `agent_docs/`, memhub files, `PROJECT.md`, or `PROJECT_LEDGER.md`** — those are
-  orchestrator/memhub-owned; subagent writes there are forbidden (K9 rule).
+  orchestrator/memhub-owned; subagent writes there are forbidden (K9 rule). This is a
+  writes-only prohibition: the read-only `memhub recall` in step 4 is the one memhub interaction
+  you're permitted, and does not conflict with this rule. Never run `memhub locate` (it writes a
+  local code index) or any other memhub command that mutates state.
