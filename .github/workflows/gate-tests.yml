@@ -5,6 +5,10 @@ on:
     paths:
       - '.claude/hooks/executor-stop-gate.ps1'
       - '.claude/settings.json'
+      - '.agents/plugins/**'
+      - 'plugins/fable-sonnet-orchestrator-kit/**'
+      - '.codex/agents/**'
+      - 'AGENTS.md'
       - 'tests/**'
       - '.github/workflows/gate-tests.yml'
   workflow_dispatch:
@@ -41,7 +45,7 @@ jobs:
           Import-Module Pester -MinimumVersion 5.0.0 -Force
 
           $cfg = New-PesterConfiguration
-          $cfg.Run.Path = 'tests/gate.Tests.ps1'
+          $cfg.Run.Path = 'tests/*.Tests.ps1'
           $cfg.Run.PassThru = $true
           $cfg.Output.Verbosity = 'Detailed'
 

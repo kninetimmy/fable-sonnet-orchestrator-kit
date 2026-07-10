@@ -1,0 +1,6 @@
+interface:
+  display_name: "Orchestrator Toggle"
+  short_description: "Toggle Codex orchestrator mode per repository"
+  default_prompt: "Use $orch to report or change orchestrator mode for this repository."
+policy:
+  allow_implicit_invocation: true

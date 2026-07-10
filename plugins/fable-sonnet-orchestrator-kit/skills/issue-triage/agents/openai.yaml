@@ -1,0 +1,6 @@
+interface:
+  display_name: "Issue Triage"
+  short_description: "Maintain the GitHub issue todo list"
+  default_prompt: "Use $issue-triage to perform these GitHub issue operations."
+policy:
+  allow_implicit_invocation: false

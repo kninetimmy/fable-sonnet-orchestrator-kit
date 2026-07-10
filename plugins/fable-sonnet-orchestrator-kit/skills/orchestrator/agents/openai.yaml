@@ -1,0 +1,6 @@
+interface:
+  display_name: "Orchestrator"
+  short_description: "Coordinate issue-to-PR executor workflows"
+  default_prompt: "Use $orchestrator to coordinate this multi-issue development task."
+policy:
+  allow_implicit_invocation: false
