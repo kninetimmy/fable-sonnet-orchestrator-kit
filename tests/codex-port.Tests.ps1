@@ -47,7 +47,7 @@ Describe 'Codex plugin packaging' {
         foreach ($name in $expected) {
             $body = Get-Content -Raw -LiteralPath (Join-Path $script:PluginRoot "skills\$name\SKILL.md")
             $body | Should -Not -Match '\[TODO:'
-            $body | Should -Match "(?m)^name: $([regex]::Escape($name))$"
+            $body | Should -Match "(?m)^name: $([regex]::Escape($name))\r?$"
             $body | Should -Match '(?m)^description: .+'
         }
     }
@@ -65,9 +65,9 @@ Describe 'Codex custom-agent model mapping' {
     It 'pins <Name> to <Model>/<Effort> and its binding skill' -ForEach $cases {
         $body = Get-Content -Raw -LiteralPath (Join-Path $script:CodexAgents $File)
 
-        $body | Should -Match "(?m)^name = `"$([regex]::Escape($Name))`"$"
-        $body | Should -Match "(?m)^model = `"$([regex]::Escape($Model))`"$"
-        $body | Should -Match "(?m)^model_reasoning_effort = `"$([regex]::Escape($Effort))`"$"
+        $body | Should -Match "(?m)^name = `"$([regex]::Escape($Name))`"\r?$"
+        $body | Should -Match "(?m)^model = `"$([regex]::Escape($Model))`"\r?$"
+        $body | Should -Match "(?m)^model_reasoning_effort = `"$([regex]::Escape($Effort))`"\r?$"
         $body | Should -Match "fable-sonnet-orchestrator-kit:$([regex]::Escape($Skill))"
     }
 }
