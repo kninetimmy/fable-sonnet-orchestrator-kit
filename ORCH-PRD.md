@@ -1,8 +1,8 @@
 # Orch Product Requirements Document
 
-Status: Draft for future implementation  
-Last updated: 2026-07-10  
-Intended implementation context: A new memhub-enabled repository
+- Status: Draft for future implementation
+- Last updated: 2026-07-10
+- Intended implementation context: A new memhub-enabled repository
 
 ## 1. Product summary
 
