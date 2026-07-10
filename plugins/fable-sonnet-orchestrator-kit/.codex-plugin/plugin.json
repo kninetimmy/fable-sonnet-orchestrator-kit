@@ -1,0 +1,24 @@
+{
+  "name": "fable-sonnet-orchestrator-kit",
+  "version": "0.1.0",
+  "description": "Issue-to-worktree-to-PR orchestration for Codex with model-tiered executors and deterministic stop gating.",
+  "author": {
+    "name": "Kninetimmy",
+    "url": "https://github.com/kninetimmy"
+  },
+  "repository": "https://github.com/kninetimmy/fable-sonnet-orchestrator-kit",
+  "keywords": ["codex", "orchestration", "subagents", "github", "worktrees"],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "Fable Sonnet Orchestrator Kit",
+    "shortDescription": "Run model-tiered issue-to-PR workflows in Codex",
+    "longDescription": "Turns the main Codex agent into an orchestrator that plans GitHub issues, delegates each issue to an isolated executor, verifies pull requests, and waits for human merge approval.",
+    "developerName": "Kninetimmy",
+    "category": "Productivity",
+    "capabilities": ["Read", "Write"],
+    "defaultPrompt": [
+      "Use $orch to enable orchestrator mode for this repository.",
+      "Use $orch to report the current orchestrator status."
+    ]
+  }
+}

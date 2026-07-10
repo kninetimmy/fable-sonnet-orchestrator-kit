@@ -1,0 +1,6 @@
+interface:
+  display_name: "Executor"
+  short_description: "Resolve one issue into one focused PR"
+  default_prompt: "Use $executor to resolve this assigned GitHub issue."
+policy:
+  allow_implicit_invocation: false

@@ -1,0 +1,30 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "startup|resume|clear|compact",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "pwsh -NoProfile -ExecutionPolicy Bypass -File \"${PLUGIN_ROOT}/hooks/session-start.ps1\"",
+            "timeout": 30,
+            "statusMessage": "Checking orchestrator mode"
+          }
+        ]
+      }
+    ],
+    "SubagentStop": [
+      {
+        "matcher": "sonnet-executor|opus-executor|haiku-executor",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "pwsh -NoProfile -ExecutionPolicy Bypass -File \"${PLUGIN_ROOT}/hooks/executor-stop-gate.ps1\"",
+            "timeout": 120,
+            "statusMessage": "Checking executor handoff"
+          }
+        ]
+      }
+    ]
+  }
+}

@@ -67,7 +67,43 @@ your codebase (conflict-prone files, one DB migration in flight at a time, etc.)
 > (one copy serves many repos) and toggling orchestrator mode per-repo with
 > `/orch on` | `/orch off` | `/orch status`. It is ready to implement from that document alone.
 
-## Use
+## Codex install
+
+The Codex port preserves the same issue → worktree → PR → review → human merge workflow. It uses
+a repo-local plugin marketplace for the skills and lifecycle hooks, plus user-scope custom-agent
+TOMLs because Codex plugins do not bundle custom agents.
+
+Prerequisites are Codex CLI 0.144.0 or newer, authenticated `gh`, `pwsh` 7+, and this repository
+available locally. From the repository root in PowerShell:
+
+```powershell
+codex plugin marketplace add (Get-Location).Path
+codex plugin add fable-sonnet-orchestrator-kit@personal
+New-Item -ItemType Directory -Path "$HOME\.codex\agents" -Force | Out-Null
+Copy-Item .\.codex\agents\*.toml "$HOME\.codex\agents\" -Force
+```
+
+Start a new Codex thread after installation. Open `/hooks`, review the plugin's two PowerShell
+hooks, and trust their current hashes. Then use `$orch on` in any repository to create the
+gitignored `.codex/orch.on` flag and adopt the operating model immediately. `$orch off` removes
+only the Codex flag; Claude's separate `.claude/orch.on` flag is unaffected.
+
+The Codex model map preserves the intent of the Claude tiers:
+
+| Role | Codex model | Effort |
+|---|---|---|
+| Main orchestrator | `gpt-5.6-sol` | `xhigh` |
+| `sonnet-executor` | `gpt-5.6-terra` | `max` |
+| `opus-executor` | `gpt-5.6-sol` | `max` |
+| `haiku-executor` | `gpt-5.6-luna` | `max` |
+| `pr-reviewer` | `gpt-5.6-terra` | `max` |
+| `issue-triage` | `gpt-5.6-terra` | `max` |
+
+The source custom agents live in `.codex/agents/`; the installed copies under
+`~/.codex/agents/` serve every repository. The plugin is cached when installed, so source edits
+require the plugin cachebuster/reinstall flow before a new thread can see them.
+
+## Claude Code use
 
 Open Claude Code in your project. The `SessionStart` hook auto-injects the `fable-orchestrator`
 skill every session, so the main agent always boots into its orchestrator role — no manual prompt

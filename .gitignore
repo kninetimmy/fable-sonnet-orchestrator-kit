@@ -4,6 +4,12 @@
 env_values/
 # Rolling memory / local artifacts (generate per-project, do not ship)
 handoff.md
+# Orchestrator-mode local flag (per-checkout, do not ship)
+.claude/orch.on
+.codex/orch.on
 # OS / editor cruft
 .DS_Store
 Thumbs.db
+.memhub/
+agent_docs/PROJECT.md
+agent_docs/PROJECT_LEDGER.md
